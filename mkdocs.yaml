@@ -27,4 +27,4 @@ nav:
     - 'Observabilidade (.NET)': 'Tutoriais/observabilidade-dotnet.md'
     - 'Instalação MkDocs': 'Tutoriais/instalacaomkdocs.md'
   - 'Service Desk':
-    - 'Reunião Bot': 'service-desk/Resumo de Reunião — Bot ServiceDesk.md'
+    - 'Reunião Bot': 'service-desk/resumo-de-reuniao-bot-serviceDesk.md'
