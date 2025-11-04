@@ -1,0 +1,30 @@
+site_name: 'Documentação da Plataforma LEDS'
+site_description: 'Documentação centralizada da equipe de plataforma do LEDS.'
+
+repo_url: 'https://github.com/leds-conectafapes/leds-plataforma-docs'
+
+plugins:
+  - techdocs-core
+
+# Estrutura de Navegação (Menu Lateral)
+# Os caminhos são relativos ao diretório 'docs/'
+nav:
+  - 'Início': 'index.md'
+  - 'Desenvolvimento':
+    - 'Processo de Dev': 'Dev/processo-de-desenvolvimento.md'
+  - 'CI/CD':
+    - 'Deploy Preview': 'CI-CD/Deploy Preview/deploy-preview-final.md'
+    - 'Template Drone CI': 'Tutoriais/template_drone.md'
+  - 'Infraestrutura':
+    - 'Storage (Ceph)': 'Infra/Storage/ceph.md'
+  - 'Arquitetura':
+    - 'Diagrama Conecta Admin': 'SDD/arquitetura.md' 
+  - 'Tutoriais':
+    - 'VPN (Windows)': 'Tutoriais/windows-vpn.md'
+    - 'VPN (Linux)': 'Tutoriais/linux-vpn.md'
+    - 'SonarQube (Pipeline)': 'Tutoriais/configuracao_checks_sonarqube_pipeline.md'
+    - 'Terraform (AWS)': 'Tutoriais/terraform-aws.md'
+    - 'Observabilidade (.NET)': 'Tutoriais/observabilidade-dotnet.md'
+    - 'Instalação MkDocs': 'Tutoriais/instalacaomkdocs.md'
+  - 'Service Desk':
+    - 'Reunião Bot': 'service-desk/Resumo de Reunião — Bot ServiceDesk.md'

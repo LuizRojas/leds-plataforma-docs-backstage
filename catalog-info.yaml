@@ -1,0 +1,17 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: "leds-plataforma-docs"
+  description: "Documentação centralizada da equipe de plataforma do LEDS."
+  tags:
+    - plataforma
+    - leds
+    - documentacao
+    - devops
+  annotations:
+    github.com/project-slug: 'leds-conectafapes/leds-plataforma-docs'
+    backstage.io/techdocs-ref: dir:.
+spec:
+  type: documentation
+  lifecycle: experimental 
+  owner: group:plataforma
