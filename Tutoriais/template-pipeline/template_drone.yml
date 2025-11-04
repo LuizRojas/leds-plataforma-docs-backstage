@@ -1,0 +1,224 @@
+kind: pipeline
+type: docker
+name: Build
+
+trigger:
+  event:
+    - push
+  branch:
+    - develop
+    - test
+
+steps:
+  - name: build
+    image: docker:27.2.0-dind
+    privileged: true
+    volumes:
+      - name: dockersock
+        path: /var/run/docker.sock
+    commands:
+      - cd <diretório_do_projeto>
+      - docker build -f dockerfile .
+        #caso esteja a mexer com mais de uma imagem, seguir os próximos passos!
+      - cd ../<diretório_do_projeto>
+      - docker build -f dockerfile .
+      - cd ..
+      - echo "Build completed successfully"
+services:
+  - name: dind
+    image: docker:27.1-dind
+    privileged: true
+
+volumes:
+  - name: dockersock
+    host:
+      path: /var/run/docker.sock
+
+---
+
+kind: pipeline
+type: docker
+name: Publish
+
+trigger:
+  event:
+    - push
+  branch:
+    - develop
+    - test
+
+depends_on:
+  - Build
+
+steps:
+  - name: publish
+    image: docker:27.2.0-dind
+    privileged: true
+    volumes:
+      - name: dockersock
+        path: /var/run/docker.sock
+    environment:
+      GITHUB_USERNAME:
+        from_secret: GITHUB_USERNAME
+      GITHUB_TOKEN:
+        from_secret: GHCR_TOKEN
+    commands:
+      - echo $GITHUB_TOKEN | docker login ghcr.io -u $GITHUB_USERNAME --password-stdin
+      - cd <diretório_do_projeto>
+      - docker build -t ghcr.io/<nome_org>/<nome_repo>:${DRONE_COMMIT_BRANCH} -f dockerfile .
+      - docker push ghcr.io/<nome_org>/<nome_repo>:${DRONE_COMMIT_BRANCH}
+        #caso esteja a mexer com mais de uma imagem, seguir os próximos passos!
+      - cd ../<diretorio_do_projeto>
+      - docker build -t ghcr.io/<nome_org>/<nome_repo>:${DRONE_COMMIT_BRANCH} -f dockerfile .
+      - docker push ghcr.io/<nome_org>/<nome_repo>:${DRONE_COMMIT_BRANCH}
+      - cd .. 
+      - echo "Publish completed successfully"
+
+      
+
+services:
+  - name: dind
+    image: docker:27.1-dind
+    privileged: true
+
+volumes:
+  - name: dockersock
+    host:
+      path: /var/run/docker.sock
+
+---
+kind: pipeline
+type: docker
+name: Deploy
+
+trigger:
+  event:
+    - push
+  branch:
+    - develop
+
+depends_on:
+  - Publish
+
+volumes:
+  - name: dockersock
+    host:
+      path: /var/run/docker.sock
+
+steps:
+  - name: deploy-stage
+    image: docker:20.10.24-dind
+    privileged: true
+    environment:
+      GITHUB_USERNAME:
+        from_secret: GITHUB_USERNAME
+      GITHUB_TOKEN:
+        from_secret: GHCR_TOKEN
+      DRONE_TAG: ${DRONE_COMMIT_BRANCH}-${DRONE_COMMIT_SHA}
+    volumes:
+      - name: dockersock
+        path: /var/run/docker.sock
+    commands:
+      - apk add --no-cache git wget curl
+      - wget https://github.com/mikefarah/yq/releases/download/v4.44.1/yq_linux_amd64 -O /usr/local/bin/yq
+      - chmod +x /usr/local/bin/yq
+      - echo "$GITHUB_TOKEN" | docker login ghcr.io -u "$GITHUB_USERNAME" --password-stdin
+      - docker pull ghcr.io/<nome_org>/<nome_repo>:develop
+        #Caso esteja a mexer com mais de uma imagem, adicionar a mesma.  
+      - docker pull ghcr.io/<nome_org>/<nome_repo>:develop
+      - git clone https://$GITHUB_USERNAME:$GITHUB_TOKEN@github.com/<nome_org>/<nome_repo>.git
+
+      - DIGEST_<ID_UTILITÁRIO>=$(docker inspect --format='{{index .RepoDigests 0}}' ghcr.io/<nome_org>/<nome_repo>:develop | cut -d'@' -f2)
+      - yq -i ".spec.template.spec.containers[0].image = \"ghcr.io/<nome_org>/<nome_repo>@$D<ID_UTILITÁRIO>\"" <nome_repo>/<pasta_destino_deploy>/<arquivo_deploy.yaml>
+        #Caso esteja a mexer com mais de uma imagem, seguir os próximos passos!
+      - DIGEST_<ID_UTILITÁRIO>=$(docker inspect --format='{{index .RepoDigests 0}}' ghcr.io/<nome_org>/<nome_repo>:develop | cut -d'@' -f2)
+      - yq -i ".spec.template.spec.containers[0].image = \"ghcr.io/<nome_org>/<nome_repo>@$<ID_UTILITÁRIO>\"" <nome_repo>/<pasta_destino_deploy>/<arquivo_deploy.yaml>
+        
+
+      - cd <nome_repo>
+      - echo "Deployment images updated successfully"
+      - git config user.name "drone-ci"
+      - git config user.email "drone@ci.leds"
+      - git add <pasta_destino_deploy>/<arquivo_deploy.yaml>
+      - git add <pasta_destino_deploy>/<arquivo_deploy.yaml>
+      - |
+        if ! git diff --cached --quiet; then
+          git commit -m "[DEPLOY] Atualizando imagens para ${DRONE_TAG}"
+        else
+          echo "Nenhuma alteração para commitar"
+        fi
+
+      - git push
+when:
+     branch:
+       include:
+         - develop
+
+
+---
+kind: pipeline
+type: docker
+name: Deploy-Test
+
+trigger:
+  event:
+    - push
+  branch:
+    - test
+
+depends_on:
+  - Publish
+
+volumes:
+  - name: dockersock
+    host:
+      path: /var/run/docker.sock
+
+steps:
+  - name: deploy-stage
+    image: docker:20.10.24-dind
+    privileged: true
+    environment:
+      GITHUB_USERNAME:
+        from_secret: GITHUB_USERNAME
+      GITHUB_TOKEN:
+        from_secret: GHCR_TOKEN
+      DRONE_TAG: ${DRONE_COMMIT_BRANCH}-${DRONE_COMMIT_SHA}
+    volumes:
+      - name: dockersock
+        path: /var/run/docker.sock
+    commands:
+      - apk add --no-cache git wget curl
+      - wget https://github.com/mikefarah/yq/releases/download/v4.44.1/yq_linux_amd64 -O /usr/local/bin/yq
+      - chmod +x /usr/local/bin/yq
+      - echo "$GITHUB_TOKEN" | docker login ghcr.io -u "$GITHUB_USERNAME" --password-stdin
+      - docker pull ghcr.io/<nome_org>/<nome_repo>:test  
+        #Caso esteja a mexer com mais de uma imagem, adicionar a mesma.
+      - docker pull ghcr.io/<nome_org>/<nome_repo>:test
+      - git clone https://$GITHUB_USERNAME:$GITHUB_TOKEN@github.com/<nome_org>/<nome_repo>.git
+
+      - DIGEST_<ID_UTILITÁRIO>=$(docker inspect --format='{{index .RepoDigests 0}}' ghcr.io/<nome_org>/<nome_repo>:develop | cut -d'@' -f2)
+      - yq -i ".spec.template.spec.containers[0].image = \"ghcr.io/<nome_org>/<nome_repo>@$<ID_UTILITÁRIO>\"" <nome_repo>/<pasta_destino_deploy>/<arquivo_deploy.yaml>
+        #Caso esteja a mexer com mais de uma imagem, seguir os próximos passos!
+      - DIGEST_<ID_UTILITÁRIO>=$(docker inspect --format='{{index .RepoDigests 0}}' ghcr.io/<nome_org>/<nome_repo>:develop | cut -d'@' -f2)
+      - yq -i ".spec.template.spec.containers[0].image = \"ghcr.io/<nome_org>/<nome_repo>@$<ID_UTILITÁRIO>\"" <nome_repo>/<pasta_destino_deploy>/<arquivo_deploy.yaml>
+        
+
+      - cd <nome_repo>
+      - echo "Deployment images updated successfully"
+      - git config user.name "drone-ci"
+      - git config user.email "drone@ci.leds"
+      - git add <pasta_destino_deploy>/<arquivo_deploy.yaml>
+      - git add <pasta_destino_deploy>/<arquivo_deploy.yaml>
+      - |
+        if ! git diff --cached --quiet; then
+          git commit -m "[DEPLOY] Atualizando imagens para ${DRONE_TAG}"
+        else
+          echo "Nenhuma alteração para commitar"
+        fi
+
+      - git push
+when:
+     branch:
+       include:
+         - test
