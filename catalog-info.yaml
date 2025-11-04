@@ -1,6 +1,7 @@
 apiVersion: backstage.io/v1alpha1
 kind: Component
 metadata:
+  title: Documentação do time de Plataforma
   name: "leds-plataforma-docs"
   description: "Documentação centralizada da equipe de plataforma do LEDS."
   tags:
